@@ -25,11 +25,11 @@ mail = Mail(app)
 
 # Configurazione MQTT e API
 MQTT_BROKER = "broker.hivemq.com"
-MQTT_PORT = 1883
+MQTT_PORT = 8000
 WEATHER_API_KEY = "9060e89b2bd50c039a8edd77e1c112b9"
 
 # Client per inviare comandi (usato da rotte Flask e AI Engine)
-mqtt_pub_client = mqtt.Client()
+mqtt_pub_client = mqtt.Client(transport="websockets")
 mqtt_pub_client.connect(MQTT_BROKER, MQTT_PORT, 60)
 mqtt_pub_client.loop_start()
 
@@ -163,17 +163,17 @@ def mqtt_worker():
     # --- FIX PER PAHO-MQTT 2.0+ ---
     try:
         # Se hai la versione 2.0+, devi passare CallbackAPIVersion.VERSION1 o VERSION2
-        client = mqtt.Client(CallbackAPIVersion.VERSION1, client_id)
+        client = mqtt.Client(CallbackAPIVersion.VERSION1, client_id, transport="websockets")
     except (ImportError, AttributeError):
         # Se hai la versione vecchia (1.x)
-        client = mqtt.Client(client_id)
+        client = mqtt.Client(client_id, transport="websockets")
     # ------------------------------
 
     client.on_connect = on_connect
     client.on_message = on_message
     
     try:
-        print(f"📡 Tentativo di connessione al broker: {MQTT_BROKER}...")
+        print(f"📡 Tentativo di connessione via WebSocket al broker: {MQTT_BROKER}...")
         client.connect(MQTT_BROKER, MQTT_PORT, 60)
         client.loop_forever()
     except Exception as e:
@@ -1126,34 +1126,37 @@ def internal_server_error(e):
 #
 #  AVVIO APPLICAZIONE
 #
-print("\n--- 🏁 AVVIO PROCEDURA DI BOOT ---")
+try:
+    print("\n--- 🏁 AVVIO PROCEDURA DI BOOT ---")
 
-# 1. Inizializza la cache dal DB
-print("1️⃣  Inizializzazione cache attuatori...")
-init_actuator_cache()
+    # 1. Inizializza la cache dal DB
+    print("1️⃣  Inizializzazione cache attuatori...")
+    init_actuator_cache()
 
-# 2. Avvio Thread MQTT (Ricezione dati real-time)
-print("2️⃣  Avvio Thread MQTT...")
-t_mqtt = threading.Thread(target=mqtt_worker, daemon=True)
-t_mqtt.start()
+    # 2. Avvio Thread MQTT (Ricezione dati real-time)
+    print("2️⃣  Avvio Thread MQTT...")
+    t_mqtt = threading.Thread(target=mqtt_worker, daemon=True)
+    t_mqtt.start()
 
-# 3. Avvio Thread Sensor DB (Storico 5 min)
-print("3️⃣  Avvio Thread Sensor DB...")
-t_sensor = threading.Thread(target=sensor_db_worker, daemon=True)
-t_sensor.start()
+    # 3. Avvio Thread Sensor DB (Storico 5 min)
+    print("3️⃣  Avvio Thread Sensor DB...")
+    t_sensor = threading.Thread(target=sensor_db_worker, daemon=True)
+    t_sensor.start()
 
-# 4. Avvio Watchdog Attuatori (Backup 5 min)
-print("4️⃣  Avvio Watchdog sugli attuatori...")
-t_watchdog = threading.Thread(target=actuator_watchdog_worker, daemon=True)
-t_watchdog.start()
+    # 4. Avvio Watchdog Attuatori (Backup 5 min)
+    print("4️⃣  Avvio Watchdog sugli attuatori...")
+    t_watchdog = threading.Thread(target=actuator_watchdog_worker, daemon=True)
+    t_watchdog.start()
 
-# 5. Avvio Bot Telegram
-print("5️⃣  Avvio Bot Telegram...")
-t_tg = threading.Thread(target=telegram_bot_worker, daemon=True)
-t_tg.start()
+    # 5. Avvio Bot Telegram
+    print("5️⃣  Avvio Bot Telegram...")
+    t_tg = threading.Thread(target=telegram_bot_worker, daemon=True)
+    t_tg.start()
 
-print("--- ✅ TUTTI I THREAD SONO PARTITI ---")
-
+    print("--- ✅ TUTTI I THREAD SONO PARTITI ---")
+except Exception as e:
+    print(f"⚠️ Avvio thread fallito: {e}")
+    
 # --- AVVIO APPLICAZIONE E THREAD ---
 if __name__ == "__main__":
     # 6. Avvio Flask
