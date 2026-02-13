@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="dashboard-wrapper">
+    <div class="welcome-banner">
+        <div class="welcome-text">
+            <h1>🛠️ Pannello Admin</h1>
+        </div>
+    </div>
+
+    <div class="card" style="margin-bottom: 30px;">
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 20px;">
+            <span style="font-size: 1.5rem;">🏠</span>
+            <h3 style="margin: 0;">Lista Case Registrate</h3>
+        </div>
+        
+        <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="text-align: left; border-bottom: 2px solid #eee;">
+                        <th style="padding: 15px;">ID</th>
+                        <th style="padding: 15px;">Nome Casa</th>
+                        <th style="padding: 15px;">Città</th>
+                        <th style="padding: 15px; text-align: center;">Azioni</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for house in houses %}
+                    <tr style="border-bottom: 1px solid #f9f9f9; transition: background 0.2s;">
+                        <td style="padding: 15px;">#{{ house.id }}</td>
+                        <td style="padding: 15px;"><strong>{{ house.name }}</strong></td>
+                        <td style="padding: 15px;">{{ house.city }}</td>
+                        <td style="padding: 15px; text-align: center;">
+                            <button onclick="selectHouse('{{ house.id }}', '{{ house.name }}')" 
+                                    class="styled-select" 
+                                    style="background: var(--primary-color); border: none; padding: 10px 20px;">
+                                Visualizza Stanze
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="rooms-section" class="card" style="display: none; border: 2px solid var(--primary-color); animation: fadeIn 0.5s ease;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h3 style="margin: 0;">🚪 Stanze in: <span id="current-house-name" style="color: var(--primary-color);"></span></h3>
+        </div>
+
+        <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: #f8faff; text-align: left;">
+                        <th style="padding: 12px; border-radius: 12px 0 0 12px;">Stanza</th>
+                        <th style="padding: 12px;">Topic MQTT</th>
+                        <th style="padding: 12px; text-align: center;">Min Temp (°C)</th>
+                        <th style="padding: 12px; text-align: center;">Max Temp (°C)</th>
+                        <th style="padding: 12px; text-align: center;">Soglia CO2 (ppm)</th>
+                    </tr>
+                </thead>
+                <tbody id="rooms-tbody">
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<style>
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .badge-info {
+        background: #f0f4ff;
+        color: var(--primary-color);
+        padding: 6px 12px;
+        border-radius: 8px;
+        font-weight: 600;
+        display: inline-block;
+        min-width: 45px;
+        text-align: center;
+        border: 1px solid rgba(14, 75, 241, 0.1);
+    }
+    .no-data {
+        color: #bbb;
+        font-style: italic;
+    }
+</style>
+
+<script>
+async function selectHouse(houseId, houseName) {
+    document.getElementById('current-house-name').innerText = houseName;
+    const section = document.getElementById('rooms-section');
+    const tbody = document.getElementById('rooms-tbody');
+    
+    section.style.display = 'block';
+    section.scrollIntoView({ behavior: 'smooth' });
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 40px;">Caricamento configurazioni...</td></tr>';
+
+    try {
+        const response = await fetch(`/admin/get_rooms_by_house/${houseId}`);
+        const rooms = await response.json();
+        
+        tbody.innerHTML = '';
+        
+        if (rooms.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 20px;">Nessuna stanza trovata.</td></tr>';
+            return;
+        }
+
+        rooms.forEach(room => {
+            // Sostituzione degli input con semplici span/badge per sola lettura
+            const minV = room.min_temp !== null ? `<span class="badge-info">${room.min_temp}°</span>` : '<span class="no-data">--</span>';
+            const maxV = room.max_temp !== null ? `<span class="badge-info">${room.max_temp}°</span>` : '<span class="no-data">--</span>';
+            const co2V = room.co2_limit !== null ? `<span class="badge-info">${room.co2_limit}</span>` : '<span class="no-data">--</span>';
+            
+            tbody.innerHTML += `
+                <tr style="border-bottom: 1px solid #eee;">
+                    <td style="padding: 15px;"><strong>${room.name}</strong></td>
+                    <td style="padding: 15px;"><code style="background: #f0f0f0; padding: 4px 8px; border-radius: 5px;">${room.mqtt_topic}</code></td>
+                    <td style="padding: 15px; text-align: center;">${minV}</td>
+                    <td style="padding: 15px; text-align: center;">${maxV}</td>
+                    <td style="padding: 15px; text-align: center;">${co2V}</td>
+                </tr>
+            `;
+        });
+    } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="5" style="color: var(--danger); text-align: center; padding: 20px;">⚠️ Errore durante il recupero dei dati.</td></tr>';
+    }
+}
+</script>
+{% endblock %}

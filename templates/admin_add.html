@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+    .alert-container {
+        max-width: 600px;
+        margin: 20px auto 0;
+        padding: 0 20px;
+    }
+    .alert {
+        padding: 15px 20px;
+        border-radius: 12px;
+        margin-bottom: 15px;
+        text-align: center;
+        font-weight: 600;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        animation: slideInDown 0.5s ease-out;
+        position: relative;
+    }
+    .alert-success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+    .alert-danger { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+    .close-alert { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); cursor: pointer; opacity: 0.5; }
+
+    @keyframes slideInDown {
+        from { transform: translateY(-20px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+</style>
+
+<div class="alert-container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }}" id="flash-message">
+                    {{ message }}
+                    <span class="close-alert" onclick="this.parentElement.style.display='none'">×</span>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+</div>
+
+<div class="dashboard-wrapper">
+    <div class="card" style="max-width: 600px; margin: 20px auto 40px;">
+        <div style="display: flex; justify-content: space-around; margin-bottom: 25px; border-bottom: 2px solid #eee;">
+            <button onclick="showTab('tab-house')" id="btn-h" style="padding: 15px; cursor: pointer; border: none; background: none; font-weight: bold;">🏠 Casa</button>
+            <button onclick="showTab('tab-room')" id="btn-r" style="padding: 15px; cursor: pointer; border: none; background: none; font-weight: bold;">🚪 Stanza</button>
+        </div>
+
+        <div id="tab-house">
+            <h3 style="color: #333;">🏠 Nuova Casa</h3>
+            <form method="POST" style="display: flex; flex-direction: column; gap: 15px; margin-top: 20px;">
+                <input type="hidden" name="form_type" value="house">
+                <div style="display: flex; flex-direction: column; gap: 5px;">
+                    <label style="font-weight: 600; font-size: 0.9rem;">Nome Casa</label>
+                    <input type="text" name="name" placeholder="Es: Villa Maria" required style="padding: 12px; border-radius: 8px; border: 1px solid #ddd;">
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 5px;">
+                    <label style="font-weight: 600; font-size: 0.9rem;">Città</label>
+                    <input type="text" name="city" placeholder="Es: Roma" required style="padding: 12px; border-radius: 8px; border: 1px solid #ddd;">
+                </div>
+                <button type="submit" style="width: 100%; padding: 14px; background: #2ecc71; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">Salva Casa</button>
+            </form>
+        </div>
+
+        <div id="tab-room" style="display: none;">
+            <h3 style="color: #333;">🚪 Nuova Stanza</h3>
+            <form method="POST" style="display: flex; flex-direction: column; gap: 15px; margin-top: 20px;">
+                <input type="hidden" name="form_type" value="room">
+                <div style="display: flex; flex-direction: column; gap: 5px;">
+                    <label style="font-weight: 600; font-size: 0.9rem;">Seleziona Casa</label>
+                    <select name="house_id" required style="padding: 12px; border-radius: 8px; border: 1px solid #ddd; background: white;">
+                        {% for house in houses %}
+                        <option value="{{ house.id }}">{{ house.name }} ({{ house.city }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 5px;">
+                    <label style="font-weight: 600; font-size: 0.9rem;">Nome Stanza</label>
+                    <input type="text" name="room_name" placeholder="Es: Bagno" required style="padding: 12px; border-radius: 8px; border: 1px solid #ddd;">
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 5px;">
+                    <label style="font-weight: 600; font-size: 0.9rem;">Topic MQTT</label>
+                    <input type="text" name="mqtt_topic" placeholder="bathroom" required style="padding: 12px; border-radius: 8px; border: 1px solid #ddd;">
+                </div>
+                <div style="background: #f8faff; padding: 15px; border-radius: 12px; border: 1px solid #eef2f7;">
+                    <label style="display: flex; align-items: center; gap: 10px; font-weight: bold; cursor: pointer;">
+                        <input type="checkbox" id="use_default" name="use_default" onchange="toggleConfig(this)"> Usa valori di default
+                    </label>
+                    <div id="custom-config" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
+                        <div>
+                            <label style="font-size: 0.8rem;">Min Temp (°C)</label>
+                            <input type="number" name="min_temp" step="0.5" class="config-input" value="18" style="width: 100%; padding: 8px; border-radius: 5px; border: 1px solid #ccc;">
+                        </div>
+                        <div>
+                            <label style="font-size: 0.8rem;">Max Temp (°C)</label>
+                            <input type="number" name="max_temp" step="0.5" class="config-input" value="24" style="width: 100%; padding: 8px; border-radius: 5px; border: 1px solid #ccc;">
+                        </div>
+                        <div style="grid-column: span 2;">
+                            <label style="font-size: 0.8rem;">Soglia CO2 (ppm)</label>
+                            <input type="number" name="co2_limit" class="config-input" value="1000" style="width: 100%; padding: 8px; border-radius: 5px; border: 1px solid #ccc;">
+                        </div>
+                    </div>
+                </div>
+                <button type="submit" style="width: 100%; padding: 14px; background: #3498db; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">Crea Stanza</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function showTab(tabId) {
+    document.getElementById('tab-house').style.display = tabId === 'tab-house' ? 'block' : 'none';
+    document.getElementById('tab-room').style.display = tabId === 'tab-room' ? 'block' : 'none';
+    
+    const primaryColor = '#3498db';
+    const btnH = document.getElementById('btn-h');
+    const btnR = document.getElementById('btn-r');
+
+    if (tabId === 'tab-house') {
+        btnH.style.color = primaryColor;
+        btnH.style.borderBottom = `2px solid ${primaryColor}`;
+        btnR.style.color = '#888';
+        btnR.style.borderBottom = 'none';
+    } else {
+        btnR.style.color = primaryColor;
+        btnR.style.borderBottom = `2px solid ${primaryColor}`;
+        btnH.style.color = '#888';
+        btnH.style.borderBottom = 'none';
+    }
+}
+
+function toggleConfig(checkbox) {
+    const inputs = document.querySelectorAll('.config-input');
+    const configDiv = document.getElementById('custom-config');
+    configDiv.style.opacity = checkbox.checked ? "0.4" : "1";
+    inputs.forEach(i => i.disabled = checkbox.checked);
+}
+
+window.onload = function() {
+    const flashMessage = document.getElementById('flash-message');
+    if (flashMessage) {
+        // Se il messaggio contiene "Stanza", resta nel tab stanze per aggiungerne altre
+        if (flashMessage.innerText.includes("Stanza")) {
+            showTab('tab-room');
+        } else {
+            showTab('tab-house');
+        }
+    } else {
+        showTab('tab-house'); // Default al primo caricamento
+    }
+};
+</script>
+{% endblock %}

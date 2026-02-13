@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="dashboard-wrapper">
+    <div class="welcome-banner">
+        <div class="welcome-text">
+            <h1>🏠 Le Mie Stanze</h1>
+            <p>Visualizza i parametri e le soglie configurate per i tuoi ambienti.</p>
+        </div>
+    </div>
+
+    <div class="card">
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 20px;">
+            <span style="font-size: 1.5rem;">📋</span>
+            <h3 style="margin: 0;">Elenco Ambienti</h3>
+        </div>
+        
+        <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: #f8faff; text-align: left; border-bottom: 2px solid #eee;">
+                        <th style="padding: 15px;">Stanza</th>
+                        <th style="padding: 15px; text-align: center;">Min Temp</th>
+                        <th style="padding: 15px; text-align: center;">Max Temp</th>
+                        <th style="padding: 15px; text-align: center;">Limite CO2</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if rooms %}
+                        {% for room in rooms %}
+                        <tr style="border-bottom: 1px solid #f9f9f9; transition: background 0.2s;">
+                            <td style="padding: 15px;"><strong>{{ room.name }}</strong></td>
+                            <td style="padding: 15px; text-align: center;">
+                                {{ room.min_temp if room.min_temp is not none else '--' }}°C
+                            </td>
+                            <td style="padding: 15px; text-align: center;">
+                                {{ room.max_temp if room.max_temp is not none else '--' }}°C
+                            </td>
+                            <td style="padding: 15px; text-align: center;">
+                                <span class="badge-co2">{{ room.co2_limit if room.co2_limit is not none else '--' }} ppm</span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="6" style="text-align: center; padding: 30px; color: #888;">
+                                Non hai ancora nessuna stanza associata al tuo account.
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<style>
+    .badge-co2 {
+        background: rgba(14, 75, 241, 0.1);
+        color: var(--primary-color);
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.9em;
+    }
+    .dashboard-wrapper {
+        padding: 20px;
+        animation: fadeIn 0.5s ease;
+    }
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+</style>
+{% endblock %}

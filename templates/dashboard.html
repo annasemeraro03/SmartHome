@@ -1,0 +1,372 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="dashboard-wrapper">
+    <div class="welcome-banner">
+        <div class="welcome-text">
+            <h1>Bentornato, {{ session.get('username') }}!</h1>
+            <p id="ai-status-msg">✨ Città: <strong>{{ city }}</strong></p>
+            
+            <div id="ai-suggestion-container" style="display: none; position: fixed; top: 20px; right: 20px; z-index: 9999; min-width: 300px; transition: opacity 0.5s ease; opacity: 0;">
+                <div id="ai-suggestion-box" style="padding: 15px 25px; border-radius: 12px; font-weight: bold; border: 2px solid; box-shadow: 0 4px 15px rgba(0,0,0,0.2); display: flex; align-items: center; gap: 10px;">
+                    <span id="sug-icon" style="font-size: 1.5rem;"></span>
+                    <span id="sug-text"></span>
+                </div>
+            </div>
+
+            <div class="room-selector-wrapper">
+                <select id="rooms" class="styled-select" onchange="fetchSensors(true)">
+                    {% if rooms %}
+                        {% for room in rooms %}
+                            <option value="{{ room.mqtt_topic_name }}">{{ room.name }}</option>
+                        {% endfor %}
+                    {% else %}
+                        <option value="">Nessuna stanza trovata</option>
+                    {% endif %}
+                </select>
+            </div>
+        </div>
+        
+        <div class="weather-widget-large">
+            <div class="weather-main">
+                <span class="weather-icon">{{ weather.icon }}</span>
+                <span class="weather-temp">{{ weather.temp }}</span>
+            </div>
+            <p class="weather-desc">{{ weather.desc }}</p>
+        </div>
+    </div>
+
+    <div class="main-stats">
+        <div class="card sensor-card">
+            <h3>Temperatura Interna</h3>
+            <div class="gauge-container">
+                <div class="gauge">
+                    <div class="gauge-body">
+                        <div id="temp-fill" class="gauge-fill" style="transform: rotate(0turn);"></div>
+                        <div id="temp-text" class="gauge-cover">--°C</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card sensor-card">
+            <h3>Stato della stanza</h3>
+            <div class="air-quality-box">
+                <span id="air-status-label" class="status-value">IN ATTESA...</span>
+            </div>
+            <div class="ai-advice-box">
+                <p>💨 CO2: <strong id="co2-text">--</strong> ppm</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="action-grid">
+        <div class="action-tile" id="tile-heat" onclick="toggleDevice('il Riscaldamento', 'tile-heat')">
+            <div class="tile-icon">🔥</div>
+            <span>Riscaldamento</span>
+            <small>Spento</small>
+        </div>
+        <div class="action-tile" id="tile-ac" onclick="toggleDevice('il Condizionatore', 'tile-ac')">
+            <div class="tile-icon">❄️</div>
+            <span>Condizionatore</span>
+            <small>Spento</small>
+        </div>
+        <div class="action-tile" id="tile-windows" onclick="toggleDevice('le Finestre', 'tile-windows')">
+            <div class="tile-icon">🪟</div>
+            <span>Finestre</span>
+            <small>Chiuse</small>
+        </div>
+        <div class="action-tile" id="tile-auto" onclick="toggleDevice('la Modalità AI', 'tile-auto')">
+            <div class="tile-icon" style="font-weight: bold; font-family: sans-serif;">Ⓐ</div>
+            <span>Modalità Automatica</span>
+            <small>Off</small>
+        </div>
+    </div>
+</div>
+
+<script>
+let lastSentState = ""; 
+let isFetching = false; 
+let updatePending = false; 
+let currentUIState = "INIT"; 
+let suggestionTimeout; 
+
+function hideSuggestion() {
+    const sugContainer = document.getElementById('ai-suggestion-container');
+    if(!sugContainer) return;
+    sugContainer.style.opacity = "0";
+    setTimeout(() => { 
+        sugContainer.style.display = "none"; 
+        currentUIState = "null"; 
+    }, 500);
+}
+
+async function fetchSensors(clearUI = false) {
+    if (isFetching) return;
+    isFetching = true;
+
+    const room = document.getElementById('rooms').value;
+    const city = "{{ city }}";
+    const airLabel = document.getElementById('air-status-label');
+    const tempText = document.getElementById('temp-text');
+    const co2Text = document.getElementById('co2-text');
+    const tempFill = document.getElementById('temp-fill');
+
+    if (clearUI) {
+        tempText.innerText = "--°C";
+        tempFill.style.transform = `rotate(0turn)`;
+        co2Text.innerText = "--";
+        airLabel.innerText = "CARICAMENTO...";
+        toggleGlobalLock(true); 
+    }
+
+    try {
+        const response = await fetch(`/get_sensor_data/${room}?city=${city}`);
+        const data = await response.json();
+
+        if (!data || data.waiting) {
+            airLabel.innerText = "Dati non pervenuti";
+            airLabel.style.color = "#9C9C9C";
+            toggleGlobalLock(true);
+            return; 
+        }
+
+        toggleGlobalLock(false);
+
+        const sugContainer = document.getElementById('ai-suggestion-container');
+        const sugBox = document.getElementById('ai-suggestion-box');
+        
+        if (data.suggestion && data.suggestion !== "null") {
+            if (data.suggestion !== currentUIState) {
+                const configAlert = {
+                    "open_windows": { txt: "Aria viziata! Dovresti aprire le finestre.", icon: "🌬️", bg: "#fff3cd", color: "#856404" },
+                    "heat_on": { txt: "Fa freddo! Accendi il riscaldamento.", icon: "🥶", bg: "#cce5ff", color: "#004085" },
+                    "ac_on": { txt: "Fa caldo! Accendi il condizionatore.", icon: "🥵", bg: "#f8d7da", color: "#721c24" }
+                };
+                
+                const s = configAlert[data.suggestion];
+                document.getElementById('sug-icon').innerText = s.icon;
+                document.getElementById('sug-text').innerText = s.txt;
+                sugBox.style.backgroundColor = s.bg;
+                sugBox.style.color = s.color;
+                sugBox.style.borderColor = s.color;
+                
+                sugContainer.style.display = "block";
+                setTimeout(() => { sugContainer.style.opacity = "1"; }, 10);
+                
+                currentUIState = data.suggestion;
+
+                clearTimeout(suggestionTimeout);
+                suggestionTimeout = setTimeout(() => {
+                    hideSuggestion();
+                }, 10000);
+            }
+        } else {
+            if (currentUIState !== "null") {
+                hideSuggestion();
+            }
+        }
+
+        const autoTile = document.getElementById('tile-auto');
+        const isAutoActive = !!data.auto_mode;
+        isAutoActive ? autoTile.classList.add('active') : autoTile.classList.remove('active');
+        autoTile.querySelector('small').innerText = isAutoActive ? 'On' : 'Off';
+
+        const devices = [
+            { id: 'tile-heat', active: data.heating_on, on: 'Attivo', off: 'Spento' },
+            { id: 'tile-ac', active: data.ac_on, on: 'Attivo', off: 'Spento' },
+            { id: 'tile-windows', active: data.window_open, on: 'Aperte', off: 'Chiuse' }
+        ];
+
+        devices.forEach(dev => {
+            const el = document.getElementById(dev.id);
+            if (dev.active) {
+                el.classList.add('active');
+                el.querySelector('small').innerText = dev.on;
+            } else {
+                el.classList.remove('active');
+                el.querySelector('small').innerText = dev.off;
+            }
+        });
+
+        if (data.temperature !== undefined && !isNaN(data.temperature)) {
+            tempText.innerText = data.temperature.toFixed(1) + "°C";
+            let rotation = Math.min(Math.max((data.temperature / 50) * 0.5, 0), 0.5);
+            tempFill.style.transform = `rotate(${rotation}turn)`;
+        }
+        co2Text.innerText = data.CO2 ?? "N/D";
+
+        const co2Threshold = (data.config && data.config.co2_threshold) ? data.config.co2_threshold : 1000;
+        const isPoor = data.CO2 > co2Threshold;
+        airLabel.innerText = isPoor ? "QUALITÀ ARIA: SCARSA" : "QUALITÀ ARIA: OTTIMA";
+        airLabel.style.color = isPoor ? "#e74c3c" : "#2ecc71";
+
+        toggleVisualLock(isAutoActive); 
+        updateVisualExclusivity(); // Applica mutua esclusione visiva
+
+        if (isAutoActive) {
+            handleAutoLogic(data, room);
+        }
+
+    } catch (e) { 
+        console.error("Errore fetch:", e);
+    } finally {
+        isFetching = false;
+    }
+}
+
+async function toggleDevice(name, id) {
+    const tile = document.getElementById(id);
+    const isAutoAction = (id === 'tile-auto');
+    const isActive = tile.classList.contains('active');
+    
+    // --- NUOVA LOGICA: BLOCCO MUTUA ESCLUSIONE ---
+    if (!isAutoAction && !isActive) {
+        const otherTiles = ['tile-heat', 'tile-ac', 'tile-windows'].filter(t => t !== id);
+        const anyActive = otherTiles.some(t => document.getElementById(t).classList.contains('active'));
+        if (anyActive) {
+            alert("Spegni il dispositivo attualmente attivo prima di accenderne un altro.");
+            return;
+        }
+    }
+
+    if (!isAutoAction && document.getElementById('tile-auto').classList.contains('active')) {
+        return; 
+    }
+
+    if (isAutoAction || confirm(`Vuoi cambiare lo stato di ${name}?`)) {
+        tile.classList.toggle('active');
+        const nowActive = tile.classList.contains('active');
+
+        if (isAutoAction) {
+            tile.querySelector('small').innerText = nowActive ? 'On' : 'Off';
+        } else {
+            tile.querySelector('small').innerText = (id === 'tile-windows') 
+                ? (nowActive ? 'Aperte' : 'Chiuse') 
+                : (nowActive ? 'Attivo' : 'Spento');
+        }
+
+        updateVisualExclusivity();
+
+        const payload = {
+            room: document.getElementById('rooms').value,
+            heating: document.getElementById('tile-heat').classList.contains('active'),
+            conditioner: document.getElementById('tile-ac').classList.contains('active'),
+            windows: document.getElementById('tile-windows').classList.contains('active'),
+            auto_mode: document.getElementById('tile-auto').classList.contains('active')
+        };
+        
+        const result = await sendUpdate(payload);
+        if (result && !result.suggestion) {
+            hideSuggestion();
+        }
+
+        if (isAutoAction) fetchSensors(false);
+    }
+}
+
+function handleAutoLogic(data, room) {
+    const config = data.config || { min_temperature: 18.0, max_temperature: 22.0, co2_threshold: 1000.0 };
+    
+    const nextState = {
+        room: room,
+        heating: false,
+        conditioner: false,
+        windows: false,
+        auto_mode: true 
+    };
+
+    const currentTemp = parseFloat(data.temperature) || 0;
+    const currentCO2 = parseInt(data.CO2) || 0;
+
+    // Logica a mutua esclusione automatica
+    if (currentCO2 > config.co2_threshold) {
+        nextState.windows = true;
+    } else if (currentTemp < config.min_temperature) {
+        nextState.heating = true;
+    } else if (currentTemp > config.max_temperature) {
+        nextState.conditioner = true;
+    }
+
+    const stateString = JSON.stringify(nextState);
+    if (stateString !== lastSentState) {
+        updateUIFromAI(nextState);
+        sendUpdate(nextState);
+        lastSentState = stateString;
+    }
+}
+
+function updateUIFromAI(state) {
+    const map = { 'tile-heat': state.heating, 'tile-ac': state.conditioner, 'tile-windows': state.windows };
+    for (let [id, active] of Object.entries(map)) {
+        const el = document.getElementById(id);
+        const label = el.querySelector('small');
+        active ? el.classList.add('active') : el.classList.remove('active');
+        if (id === 'tile-windows') label.innerText = active ? 'Aperte' : 'Chiuse';
+        else label.innerText = active ? 'Attivo' : 'Spento';
+    }
+    updateVisualExclusivity();
+}
+
+function updateVisualExclusivity() {
+    const isAuto = document.getElementById('tile-auto').classList.contains('active');
+    if (isAuto) return; // Se l'AI è attiva, usa toggleVisualLock
+
+    const tiles = ['tile-heat', 'tile-ac', 'tile-windows'];
+    const activeId = tiles.find(id => document.getElementById(id).classList.contains('active'));
+
+    tiles.forEach(id => {
+        const el = document.getElementById(id);
+        if (activeId && activeId !== id) {
+            el.style.opacity = "0.4";
+            el.style.filter = "grayscale(80%)";
+            el.style.cursor = "not-allowed";
+        } else {
+            el.style.opacity = "1";
+            el.style.filter = "none";
+            el.style.cursor = "pointer";
+        }
+    });
+}
+
+function toggleGlobalLock(shouldLock) {
+    document.querySelectorAll('.action-tile').forEach(el => {
+        el.style.pointerEvents = shouldLock ? "none" : "auto";
+        el.style.opacity = shouldLock ? "0.4" : "1";
+    });
+}
+
+function toggleVisualLock(isLockedAI) {
+    ['tile-heat', 'tile-ac', 'tile-windows'].forEach(id => {
+        const el = document.getElementById(id);
+        if(!el) return;
+        el.style.opacity = isLockedAI ? "0.6" : "1";
+        el.style.pointerEvents = isLockedAI ? "none" : "auto";
+        el.style.filter = isLockedAI ? "grayscale(50%)" : "none";
+        el.style.cursor = isLockedAI ? "not-allowed" : "pointer";
+    });
+}
+
+async function sendUpdate(data) {
+    if (updatePending) return;
+    updatePending = true;
+    try {
+        const response = await fetch('/update_actuators', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        const result = await response.json();
+        lastSentState = JSON.stringify(data);
+        return result; 
+    } catch (e) { 
+        console.error("Errore invio:", e); 
+    } finally {
+        updatePending = false;
+    }
+}
+
+setInterval(() => fetchSensors(false), 5000);
+window.onload = () => fetchSensors(true);
+</script>
+{% endblock %}

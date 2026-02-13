@@ -1,0 +1,86 @@
+<nav id="navBar">
+    <div class="logo-name">
+        <span class="logo_name">Smart Home</span>
+        <i class="uil uil-bars sidebar-toggle"></i>
+    </div>
+
+    <div class="menu-items">
+        <ul class="nav-links">
+            
+
+            {% if session.get('username') %}
+                
+                {% if session.get('role') == 'admin' %}
+                    <li>
+                        <a href="{{ url_for('admin_dashboard') }}">
+                            <i class="uil uil-estate"></i>
+                            <span class="link-name">Home</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('admin_add_management') }}">
+                            <i class="uil uil-plus-circle"></i>
+                            <span class="link-name">Aggiungi (Casa/Stanza)</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('admin_add_user') }}">
+                            <i class="uil uil-user-plus"></i>
+                            <span class="link-name">Aggiungi Utente</span>
+                        </a>
+                    </li>
+                {% else %}
+                    <li>
+                        <a href="{{ url_for('dashboard') }}">
+                            <i class="uil uil-estate"></i>
+                            <span class="link-name">Home</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('my_rooms') }}">
+                            <i class="fa-regular fa-door-closed"></i>
+                            <span class="link-name">Le mie stanze</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('user_settings') }}">
+                            <i class="uil uil-setting"></i>
+                            <span class="link-name">Impostazioni stanze</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('history_page') }}">
+                            <i class="uil uil-chart"></i>
+                            <span class="link-name">Dati storici</span>
+                        </a>
+                    </li>
+                {% endif %}
+
+            {% else %}
+                <li>
+                    <a href="{{ url_for('login') }}">
+                        <i class="uil uil-signin"></i>
+                        <span class="link-name">Login</span>
+                    </a>
+                </li>
+            {% endif %}
+        </ul>
+
+        <ul class="logout-mode">
+            {% if session.get('username') %}
+            <li>
+                <a href="{{ url_for('change_password') }}">
+                    <i class="uil uil-keyhole-circle"></i>
+                    <span class="link-name">Reset password</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('logout') }}">
+                    <i class="uil uil-signout"></i>
+                    <span class="link-name">Logout</span>
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </div>
+</nav>

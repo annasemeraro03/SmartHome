@@ -1,0 +1,98 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@200;300;400;500;600&display=swap');
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Poppins', sans-serif;
+}
+
+/* Variabili */
+:root {
+    --primary-color: #0E4BF1;
+    --primary-color-hover: #0b3cc1;
+    --panel-color: #FFF;
+    --text-color: #000;
+    --h2-color: #0E4BF1;
+    --black-light-color: #707070;
+    --border-color: #e6e5e5;
+    --toggle-color: #DDD;
+    --box1-color: #4DA3FF;
+    --box2-color: #FFE6AC;
+    --box3-color: #E7D1FC;
+    --title-icon-color: #fff;
+    --tran-05: all 0.5s ease;
+    --tran-03: all 0.3s ease;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+}
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+::-webkit-scrollbar-thumb {
+    background: var(--primary-color);
+    border-radius: 12px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #0b3cc1;
+}
+
+/* Base body e layout */
+body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background-color: var(--panel-color);
+    color: var(--text-color);
+}
+
+/* wrapper principale che cresce sopra il footer */
+.main-content {
+    flex-grow: 1;
+    transition: margin-left 0.3s ease;
+    margin-left: 280px; /* sidebar aperta */
+    display: flex;
+    flex-direction: column;
+}
+
+body.sidebar-closed .main-content {
+    margin-left: 64px; /* sidebar chiusa */
+}
+
+/* dashboard wrapper interno */
+.dashboard-wrapper {
+    padding: 20px;
+    flex-grow: 1; /* prende tutto lo spazio disponibile */
+}
+
+/* Titoli */
+h1, h2, h3 {
+    color: var(--h2-color);
+    margin-bottom: 2px !important;
+}
+
+label {
+    color: var(--text-color);
+}
+
+.btn-submit {
+        width: 100%;
+        padding: 14px;
+        background: var(--primary-color);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        font-size: 16px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s;
+        margin-top: 10px;
+}
+
+.btn-submit:hover { 
+    background: var(--primary-color-hover); 
+    transform: translateY(-2px); 
+}

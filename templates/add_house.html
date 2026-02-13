@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="dashboard-wrapper">
+    <div class="card" style="max-width: 500px; margin: 40px auto;">
+        <h3>🏠 Aggiungi Nuova Casa</h3>
+        <form method="POST" style="display: flex; flex-direction: column; gap: 15px; margin-top: 20px;">
+            <div class="form-group">
+                <label>Nome Casa</label>
+                <input type="text" name="name" placeholder="Es: Villa Maria" required style="width: 100%; padding: 10px;">
+            </div>
+            <div class="form-group">
+                <label>Città</label>
+                <input type="text" name="city" placeholder="Es: Roma" required style="width: 100%; padding: 10px;">
+            </div>
+            <button type="submit" class="btn-submit">Salva Casa</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

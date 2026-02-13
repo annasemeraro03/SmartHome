@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="dashboard-wrapper">
+    <div class="card" style="max-width: 600px; margin: 40px auto;">
+        <h3>🚪 Aggiungi Nuova Stanza</h3>
+        <form method="POST" style="display: flex; flex-direction: column; gap: 15px; margin-top: 20px;">
+            
+            <label>Seleziona Casa</label>
+            <select name="house_id" required style="padding: 10px; border-radius: 8px;">
+                {% for house in houses %}
+                <option value="{{ house.id }}">{{ house.name }} ({{ house.city }})</option>
+                {% endfor %}
+            </select>
+
+            <label>Nome Stanza</label>
+            <input type="text" name="room_name" placeholder="Es: Soggiorno" required style="padding: 10px;">
+
+            <label>Topic MQTT</label>
+            <input type="text" name="mqtt_topic" placeholder="casa1/soggiorno/sensor" required style="padding: 10px;">
+
+            <hr style="border: 0; border-top: 1px solid #eee; margin: 10px 0;">
+            
+            <div style="background: #f8faff; padding: 15px; border-radius: 12px;">
+                <label style="display: flex; align-items: center; gap: 10px; font-weight: bold; cursor: pointer;">
+                    <input type="checkbox" id="use_default" name="use_default" onchange="toggleConfig(this)"> 
+                    Usa valori di default (18°C - 24°C, 1000ppm)
+                </label>
+
+                <div id="custom-config" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px;">
+                    <div>
+                        <label style="font-size: 0.8rem;">Min Temp (°C)</label>
+                        <input type="number" name="min_temp" step="0.5" class="config-input" value="18">
+                    </div>
+                    <div>
+                        <label style="font-size: 0.8rem;">Max Temp (°C)</label>
+                        <input type="number" name="max_temp" step="0.5" class="config-input" value="24">
+                    </div>
+                    <div style="grid-column: span 2;">
+                        <label style="font-size: 0.8rem;">Soglia CO2 (ppm)</label>
+                        <input type="number" name="co2_limit" class="config-input" value="1000" style="width: 100%;">
+                    </div>
+                </div>
+            </div>
+
+            <button type="submit" class="btn-submit">Crea Stanza</button>
+        </form>
+    </div>
+</div>
+
+<script>
+function toggleConfig(checkbox) {
+    const inputs = document.querySelectorAll('.config-input');
+    const configDiv = document.getElementById('custom-config');
+    
+    if (checkbox.checked) {
+        configDiv.style.opacity = "0.5";
+        inputs.forEach(i => i.disabled = true);
+    } else {
+        configDiv.style.opacity = "1";
+        inputs.forEach(i => i.disabled = false);
+    }
+}
+</script>
+{% endblock %}

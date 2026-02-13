@@ -1,0 +1,278 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    /* --- LAYOUT GENERALE --- */
+    .dashboard-wrapper {
+        background-color: #f8f9fa;
+        min-height: 100vh;
+        transition: margin-left 0.3s ease;
+        margin-left: 130px; 
+        padding: 40px 30px;
+        color: #333;
+    }
+
+    body.sidebar-closed .dashboard-wrapper {
+        margin-left: 25px;
+    }
+
+    .dashboard-wrapper h1 {
+        color: var(--primary-color) !important;
+        font-weight: 700;
+    }
+
+    /* --- CARD FILTRI --- */
+    .filter-card {
+        background: linear-gradient(135deg, var(--primary-color), #6e8efb);
+        border: none;
+        border-radius: 20px;
+        margin-bottom: 30px;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+    }
+
+    .filter-card .form-label {
+        color: rgba(255, 255, 255, 0.9) !important;
+        letter-spacing: 0.5px;
+    }
+
+    .styled-input {
+        background: rgba(255, 255, 255, 0.2) !important;
+        border: 1px solid rgba(255, 255, 255, 0.3) !important;
+        color: white !important;
+        border-radius: 12px !important;
+    }
+
+    .styled-input option {
+        color: #333;
+    }
+
+    #noDataMessage {
+        display: none;
+        color: #e74c3c;
+        font-weight: bold;
+        text-align: center;
+        padding: 15px;
+        background: #fff5f5;
+        border: 1px solid #ffcccc;
+        border-radius: 12px;
+        margin-bottom: 20px;
+    }
+
+    .chart-card {
+        background: white;
+        border-radius: 24px;
+        border: 1px solid #edf2f7;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+    }
+
+    .chart-container {
+        position: relative;
+        height: 300px; 
+        width: 100%;
+    }
+
+    .badge-actuator {
+        padding: 8px 12px;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        margin: 0 5px;
+        display: inline-block;
+        font-weight: 600;
+    }
+</style>
+
+<div class="dashboard-wrapper">
+    <div class="container-fluid">
+        <h1 class="h2 m-0 mb-4">Dati storici</h1>
+
+        <div class="card filter-card">
+            <div class="card-body p-4">
+                <div class="row g-4 align-items-end">
+                    <div class="col-auto" style="min-width: 250px;">
+                        <label class="form-label fw-bold small mb-2">Seleziona camera:</label>
+                        <select id="roomSelector" class="form-select styled-input">
+                            {% for room in user_rooms %}
+                                <option value="{{ room.id }}">{{ room.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-auto" style="min-width: 200px;">
+                        <label class="form-label fw-bold small mb-2">Seleziona data:</label>
+                        <input type="date" id="dateSelector" class="form-control styled-input" max="2026-12-31">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="noDataMessage">⚠️ Nessuna rilevazione trovata per questa data.</div>
+
+        <div class="row">
+            <div class="col-xl-6 mb-4">
+                <div class="card chart-card">
+                    <div class="card-body p-4">
+                        <h5 class="card-title text-dark fw-bold mb-4">Temperatura (°C)</h5>
+                        <div class="chart-container"><canvas id="tempChart"></canvas></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-6 mb-4">
+                <div class="card chart-card">
+                    <div class="card-body p-4">
+                        <h5 class="card-title text-dark fw-bold mb-4">CO2 (PPM)</h5>
+                        <div class="chart-container"><canvas id="co2Chart"></canvas></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-12 mb-4">
+                <div class="card chart-card">
+                    <div class="card-body p-4">
+                        <h5 class="card-title text-dark fw-bold mb-3">Timeline Attuatori</h5>
+                        <div class="chart-container" style="height: 250px;">
+                            <canvas id="actuatorChart"></canvas>
+                        </div>
+                        <div class="mt-3 text-center">
+                            <span class="badge badge-actuator" style="background-color: #ff7675;">Riscaldamento</span>
+                            <span class="badge badge-actuator" style="background-color: #74b9ff;">Condizionatore</span>
+                            <span class="badge badge-actuator" style="background-color: #55efc4;">Finestra</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    let tempChart, co2Chart, actuatorChart;
+    let autoUpdateInterval = null;
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const dateInput = document.getElementById('dateSelector');
+        if (!dateInput.value) dateInput.value = new Date().toISOString().split('T')[0];
+        
+        document.getElementById('roomSelector').addEventListener('change', updateView);
+        dateInput.addEventListener('change', updateView);
+        updateView();
+    });
+
+    async function updateView() {
+        const roomId = document.getElementById('roomSelector').value;
+        const selectedDate = document.getElementById('dateSelector').value;
+        if (!roomId || !selectedDate) return;
+
+        if (autoUpdateInterval) clearInterval(autoUpdateInterval);
+        await fetchData(roomId, selectedDate);
+
+        if (selectedDate === new Date().toISOString().split('T')[0]) {
+            autoUpdateInterval = setInterval(() => fetchData(roomId, selectedDate), 30000);
+        }
+    }
+
+    async function fetchData(roomId, date) {
+        try {
+            const response = await fetch(`/api/stats/${roomId}?date=${date}`);
+            const data = await response.json();
+            const msgDiv = document.getElementById('noDataMessage');
+
+            // Verifica se entrambi i set di dati sono vuoti
+            if (!data.sensors?.length && !data.actuators?.length) {
+                msgDiv.style.display = 'block';
+                destroyCharts();
+                return;
+            }
+            msgDiv.style.display = 'none';
+            renderCharts(data);
+        } catch (e) { console.error("Errore fetch:", e); }
+    }
+
+    function destroyCharts() {
+        [tempChart, co2Chart, actuatorChart].forEach(c => c?.destroy());
+        tempChart = co2Chart = actuatorChart = null;
+    }
+
+    function renderCharts(payload) {
+        // 1. GESTIONE DATI SENSORI
+        const sLabels = (payload.sensors || []).map(d => d.ora);
+        const tempData = (payload.sensors || []).map(d => d.temp);
+        const co2Data = (payload.sensors || []).map(d => d.co2);
+
+        // 2. GESTIONE DATI ATTUATORI
+        const aLabels = (payload.actuators || []).map(d => d.ora);
+        const heatData = (payload.actuators || []).map(d => d.heat);
+        const acData = (payload.actuators || []).map(d => d.ac);
+        const winData = (payload.actuators || []).map(d => d.win);
+
+        const commonOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 15 } }
+            }
+        };
+
+        // --- Grafico Temperatura ---
+        if (!tempChart) {
+            tempChart = new Chart(document.getElementById('tempChart'), {
+                type: 'line',
+                data: { labels: sLabels, datasets: [{ data: tempData, borderColor: '#ff7675', tension: 0.4, fill: true, backgroundColor: 'rgba(255,118,117,0.1)' }] },
+                options: commonOptions
+            });
+        } else {
+            tempChart.data.labels = sLabels;
+            tempChart.data.datasets[0].data = tempData;
+            tempChart.update();
+        }
+
+        // --- Grafico CO2 ---
+        if (!co2Chart) {
+            co2Chart = new Chart(document.getElementById('co2Chart'), {
+                type: 'line',
+                data: { labels: sLabels, datasets: [{ data: co2Data, borderColor: '#27ae60', tension: 0.4, fill: true, backgroundColor: 'rgba(39,174,96,0.1)' }] },
+                options: commonOptions
+            });
+        } else {
+            co2Chart.data.labels = sLabels;
+            co2Chart.data.datasets[0].data = co2Data;
+            co2Chart.update();
+        }
+
+        // --- Grafico Attuatori (Indipendente) ---
+        if (!actuatorChart) {
+            actuatorChart = new Chart(document.getElementById('actuatorChart'), {
+                type: 'line',
+                data: {
+                    labels: aLabels,
+                    datasets: [
+                        { label: 'Heat', data: heatData, borderColor: '#ff7675', stepped: true, pointRadius: 2, fill: true, backgroundColor: 'rgba(255,118,117,0.05)' },
+                        { label: 'AC', data: acData, borderColor: '#74b9ff', stepped: true, pointRadius: 2, fill: true, backgroundColor: 'rgba(116,185,255,0.05)' },
+                        { label: 'Win', data: winData, borderColor: '#55efc4', stepped: true, pointRadius: 2, fill: true, backgroundColor: 'rgba(85,239,196,0.1)' }
+                    ]
+                },
+                options: {
+                    ...commonOptions,
+                    scales: {
+                        y: {
+                            min: 0, max: 1.1,
+                            ticks: {
+                                stepSize: 1,
+                                callback: (v) => v === 1 ? 'ACCESO/APERTO' : (v === 0 ? 'SPENTO/CHIUSO' : '')
+                            }
+                        }
+                    }
+                }
+            });
+        } else {
+            actuatorChart.data.labels = aLabels;
+            actuatorChart.data.datasets[0].data = heatData;
+            actuatorChart.data.datasets[1].data = acData;
+            actuatorChart.data.datasets[2].data = winData;
+            actuatorChart.update();
+        }
+    }
+</script>
+{% endblock %}

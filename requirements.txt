@@ -1,0 +1,11 @@
+flask
+flask-login
+paho-mqtt
+supabase
+python-dotenv
+requests
+Flask-Mail
+python-telegram-bot
+# python3 -m venv venv
+# source venv/bin/activate
+# pip install supabase-py

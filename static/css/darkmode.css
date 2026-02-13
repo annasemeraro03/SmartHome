@@ -1,0 +1,68 @@
+body.dark {
+    --primary-color: #3A3B3C;
+    --panel-color: #242526;
+    --text-color: white;
+    --h2-color: white;
+    --black-light-color: white;
+    --border-color: #4D4C4C;
+    --toggle-color: white;
+    --box1-color: #3A3B3C;
+    --box2-color: #3A3B3C;
+    --box3-color: #3A3B3C;
+    --title-icon-color: white;
+    --footer-background-color: white;
+    --footer-text-color: #000;
+    --toogle-border-color: white;
+}
+
+.mode-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start; 
+    gap: 0px;
+    height: 50px;
+    cursor: pointer;
+    user-select: none;
+    color: var(--black-light-color);
+    font-size: 18px;
+    padding-left: 0px; 
+    margin-left: 0px; 
+} 
+
+.mode-toggle i {
+    font-size: 20px;
+    min-width: 0;
+    margin-right: 0px;
+}
+
+.mode-toggle-container .link-name {
+    margin-left: 0;
+}
+
+.switch {
+    position: relative;
+    display: inline-block;
+    height: 22px;
+    width: 40px;
+    border-radius: 25px;
+    background-color: var(--toggle-color);
+    cursor: pointer;
+    margin-left: 15px; 
+}
+
+.switch::before {
+    content: "";
+    position: absolute;
+    left: 5px;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 15px;
+    width: 15px;
+    background-color: var(--panel-color);
+    border-radius: 50%;
+    transition: var(--tran-03);
+}
+
+body.dark .switch::before {
+    left: 20px;
+}

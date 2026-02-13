@@ -1,0 +1,13 @@
+/* footer */
+footer {
+    transition: margin-left 0.3s ease;
+    margin-left: 280px; /* allineato alla sidebar aperta */
+    padding: 10px 20px;
+    background-color: var(--primary-color);
+    color: #FFF;
+    text-align: center;
+}
+
+body.sidebar-closed footer {
+    margin-left: 60px; /* allineato alla sidebar chiusa */
+}
