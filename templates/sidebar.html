@@ -1,5 +1,6 @@
 <nav id="navBar">
     <div class="logo-name">
+        <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo" style="width: 35px; height: auto; margin-right: 10px;">
         <span class="logo_name">Smart Home</span>
         <i class="uil uil-bars sidebar-toggle"></i>
     </div>
@@ -71,7 +72,7 @@
             <li>
                 <a href="{{ url_for('change_password') }}">
                     <i class="uil uil-keyhole-circle"></i>
-                    <span class="link-name">Reset password</span>
+                    <span class="link-name">Change password</span>
                 </a>
             </li>
             <li>

@@ -2,7 +2,9 @@
 <html lang="it">
 <head>
     <meta charset="UTF-8">
-    <title>SmartHome - Login</title>
+    <title>Login</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='logo.png') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
     <style>
         /* Aggiungo un piccolo stile per il link di recupero */
@@ -22,6 +24,11 @@
 </head>
 <body>
     <div class="login-container">
+        <div style="text-align: center; margin-bottom: 20px;">
+            <img src="{{ url_for('static', filename='logo.png') }}" 
+                alt="Logo" 
+                style="width: 100px; height: auto; display: block; margin: 0 auto;">
+        </div>
         {% if is_admin %}
             <h2>Accesso amministratore</h2>
         {% else %}
