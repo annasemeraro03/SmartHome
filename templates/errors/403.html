@@ -4,25 +4,78 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Accesso negato</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@200;300;400;500;600&display=swap" rel="stylesheet">
     <style>
-        body { background-color: #fffafa; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; font-family: 'Segoe UI', sans-serif; }
-        .card { border: none; box-shadow: 0 10px 25px rgba(0,0,0,0.08); padding: 3rem; border-radius: 20px; max-width: 450px; width: 90%; }
+        :root {
+            --primary-color: #0E4BF1;
+            --panel-color: #FFF;
+            --h2-color: #0E4BF1;
+            --text-secondary: #707070;
+        }
+
+        body { 
+            margin: 0;
+            padding: 0;
+            height: 100vh; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            font-family: 'Poppins', sans-serif;
+            /* Gradient identico al login */
+            background: linear-gradient(135deg, #E7D1FC, #4DA3FF);
+        }
+
+        .login-container {
+            background-color: var(--panel-color);
+            padding: 3rem 2.5rem;
+            border-radius: 12px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+            width: 90%;
+            max-width: 450px;
+            text-align: center;
+        }
+
         .emoji { font-size: 4rem; margin-bottom: 1rem; display: block; }
+        
+        h2 { color: var(--h2-color); font-weight: 600; margin-bottom: 1rem; }
+        
+        p { color: var(--text-secondary); font-size: 0.95rem; line-height: 1.5; margin-bottom: 2rem; }
+
+        .btn-custom {
+            display: inline-block;
+            width: 100%;
+            padding: 0.75rem 1rem;
+            background-color: var(--primary-color);
+            color: #fff;
+            text-decoration: none;
+            font-size: 1rem;
+            font-weight: 500;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            border: none;
+        }
+
+        .btn-custom:hover {
+            opacity: 0.9;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(14, 75, 241, 0.3);
+        }
     </style>
 </head>
 <body>
-    <div class="container text-center">
-        <div class="card d-inline-block">
-            <span class="emoji">🚫</span>
-            <h2 class="mb-3">Accesso negato</h2>
-            <p class="text-secondary mb-4">Non hai i permessi necessari per visualizzare questa sezione del sistema.</p>
-            {% if session.get('user_id') %}
-                <a href="{{ url_for('dashboard') }}" class="btn btn-primary">Torna alla Dashboard</a>
-            {% else %}
-                <a href="{{ url_for('login') }}" class="btn btn-primary">Vai al Login</a>
-            {% endif %}
-        </div>
+    <div class="login-container">
+        <span class="emoji">🚫</span>
+        <h2>Accesso negato</h2>
+        <p>Non hai i permessi necessari per visualizzare questa sezione del sistema. Se ritieni sia un errore, contatta l'amministratore.</p>
+        
+        {# Logica dinamica per il reindirizzamento #}
+        {% if session.get('is_admin') %}
+            <a href="{{ url_for('admin_dashboard') }}" class="btn-custom">Torna alla Dashboard Admin</a>
+        {% elif session.get('user_id') %}
+            <a href="{{ url_for('dashboard') }}" class="btn-custom">Torna alla Dashboard</a>
+        {% else %}
+            <a href="{{ url_for('login') }}" class="btn-custom">Torna al Login</a>
+        {% endif %}
     </div>
 </body>
 </html>
