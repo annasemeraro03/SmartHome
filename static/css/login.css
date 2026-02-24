@@ -107,3 +107,22 @@ body {
 .login-container .extra-links a:hover {
     text-decoration: underline;
 }
+
+/* Aggiunte per il forgot password */
+.login-container p {
+    font-size: 0.9rem;
+    line-height: 1.4;
+    margin-bottom: 1.5rem;
+}
+
+.login-container .success {
+    color: #2ecc71;
+    font-size: 0.9rem;
+    margin-top: 1rem;
+}
+
+.login-container .extra-links a {
+    display: inline-block;
+    margin-top: 10px;
+    font-weight: 400;
+}
