@@ -1,9 +1,5 @@
 #!/bin/bash
 
-# -----------------------------
-# START SCRIPT PER FLASK + POSTGRES
-# -----------------------------
-
 # Controllo Python
 if ! command -v python3 &> /dev/null 
 then
@@ -30,5 +26,5 @@ pip install -r requirements.txt --quiet
 echo -e "\033[1;32m>> Starting Flask server...\033[0m"
 export FLASK_APP=app.py
 export FLASK_ENV=development
-echo -e "\033[1;32m>> Flask server is running. Open your browser at http://localhost:5000\033[0m"
-flask run --host=127.0.0.1 --port=5000
+echo -e "\033[1;32m>> Flask server is running\033[0m"
+flask run --host=0.0.0.0 --port=5000
