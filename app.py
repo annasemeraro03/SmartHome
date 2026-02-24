@@ -25,13 +25,23 @@ mail = Mail(app)
 
 # Configurazione MQTT e API
 MQTT_BROKER = "broker.hivemq.com"
-MQTT_PORT = 8000
+MQTT_PORT = 1883
 WEATHER_API_KEY = "9060e89b2bd50c039a8edd77e1c112b9"
 
 # Client per inviare comandi (usato da rotte Flask e AI Engine)
-mqtt_pub_client = mqtt.Client(transport="websockets")
-mqtt_pub_client.connect(MQTT_BROKER, MQTT_PORT, 60)
-mqtt_pub_client.loop_start()
+mqtt_pub_client = mqtt.Client()
+
+def safe_mqtt_connect():
+    try:
+        # Usiamo 8000 o 443 (SSL) per i websockets
+        mqtt_pub_client.connect(MQTT_BROKER, MQTT_PORT, 60)
+        mqtt_pub_client.loop_start()
+        print("✅ MQTT Pub Client connesso.")
+    except Exception as e:
+        print(f"⚠️ Errore connessione MQTT iniziale (ignorato per avvio): {e}")
+
+# Invece di connettersi "nudo", usiamo la funzione sicura
+safe_mqtt_connect()
 
 latest_sensor_data = {} 
 last_actuator_push = {}
@@ -163,10 +173,10 @@ def mqtt_worker():
     # --- FIX PER PAHO-MQTT 2.0+ ---
     try:
         # Se hai la versione 2.0+, devi passare CallbackAPIVersion.VERSION1 o VERSION2
-        client = mqtt.Client(CallbackAPIVersion.VERSION1, client_id, transport="websockets")
+        client = mqtt.Client(CallbackAPIVersion.VERSION1, client_id)
     except (ImportError, AttributeError):
         # Se hai la versione vecchia (1.x)
-        client = mqtt.Client(client_id, transport="websockets")
+        client = mqtt.Client(client_id)
     # ------------------------------
 
     client.on_connect = on_connect
@@ -644,34 +654,6 @@ def admin_add_management():
                     flash(f'Stanza "{room_name}" creata!', 'success')
                 except Exception as e:
                     flash(f'Errore tecnico: {str(e)}', 'danger')
-
-        # --- CASO 3: AGGIUNGI UTENTE (AGGIORNATO CON EMAIL) ---
-        elif form_type == 'user':
-            house_id = request.form.get('house_id')
-            username = request.form.get('username')
-            password = request.form.get('password')
-            email = request.form.get('email').strip().lower() # <--- RECUPERO EMAIL
-
-            try:
-                # Controlliamo se username o email sono già occupati
-                check_user = supabase.table("users").select("*").or_(f"username.eq.{username},email.eq.{email}").execute()
-                
-                if check_user.data:
-                    flash('Errore: Username o Email già esistenti!', 'danger')
-                else:
-                    supabase.table("users").insert({
-                        "house_id": house_id,
-                        "username": username,
-                        "password": password, # Se usi hash, mettilo qui
-                        "email": email,       # <--- SALVATAGGIO EMAIL
-                        "role": "user"
-                    }).execute()
-                    flash(f'Utente "{username}" registrato correttamente!', 'success')
-            except Exception as e:
-                flash(f'Errore registrazione utente: {str(e)}', 'danger')
-        
-        return redirect(url_for('admin_dashboard')) # O admin_add_management
-
     houses_res = supabase.table("houses").select("*").execute()
     return render_template('admin_add.html', houses=houses_res.data)
 
@@ -684,15 +666,19 @@ def admin_add_user():
         username = request.form.get('username').strip()
         password = request.form.get('password')
         house_id = request.form.get('house_id')
-        
+        email = request.form.get('email').strip().lower() # <--- RECUPERO EMAIL
+
         existing_user = supabase.table("users").select("*").eq("username", username).execute()
         if existing_user.data:
             flash(f"L'utente '{username}' esiste già!", "danger")
         else:
             try:
                 supabase.table("users").insert({
-                    "username": username, "password": password,
-                    "house_id": house_id, "role": "user"
+                    "username": username, 
+                    "password": password,
+                    "email": email,
+                    "house_id": house_id, 
+                    "role": "user"
                 }).execute()
                 flash(f"Utente '{username}' creato!", "success")
             except Exception as e:
@@ -1004,26 +990,23 @@ def change_password():
 def forgot_password():
     if request.method == "POST":
         email_inserita = request.form.get("email").strip().lower()
-        print(f"\n[DEBUG] Richiesta reset per: {email_inserita}")
         
-        # Cerchiamo l'utente (usiamo ilike per ignorare maiuscole/minuscole nel DB)
+        # Ricerca utente
         user_res = supabase.table("users").select("*").ilike("email", email_inserita).execute()
         
         if user_res.data:
             user = user_res.data[0]
-            print(f"[DEBUG] Utente trovato: {user['username']}")
-            
             token = secrets.token_urlsafe(32)
-            # Usiamo utcnow per evitare problemi di fuso orario tra PC e Database
             scadenza = (datetime.utcnow() + timedelta(hours=1)).isoformat()
             
-            # Salviamo token e scadenza su Supabase
+            # Update database
             supabase.table("users").update({
                 "reset_token": token, 
                 "token_expiry": scadenza
             }).eq("id", user['id']).execute()
             
             try:
+                # --- INVIO MAIL ORIGINALE ---
                 link_reset = url_for('reset_password_token', token=token, _external=True)
                 msg = Message("Recupero Password - SmartHome",
                               sender=app.config['MAIL_USERNAME'],
@@ -1038,32 +1021,33 @@ Clicca sul link qui sotto (valido per 1 ora):
 Se non sei stato tu, ignora questa mail."""
 
                 mail.send(msg)
-                print("[DEBUG] Email inviata con successo!")
-                flash("Email di recupero inviata! Controlla la tua posta.", "success")
+                # ----------------------------
+                
+                # Invece di flash + redirect, mostriamo il banner di successo
+                return render_template("forgot_password.html", successo=True)
                 
             except Exception as e:
                 print(f"[DEBUG] ERRORE SMTP: {e}")
                 flash("Errore nell'invio dell'email. Riprova più tardi.", "danger")
         else:
-            print("[DEBUG] Email non trovata nel database.")
-            flash("Se l'email è registrata, riceverai un link a breve.", "info")
+            # Per sicurezza, simuliamo l'invio anche se l'email non esiste (privacy)
+            return render_template("forgot_password.html", successo=True)
             
-        return redirect(url_for('login'))
-        
     return render_template("forgot_password.html")
 
 @app.route("/reset_password/<token>", methods=["GET", "POST"])
 def reset_password_token(token):
-    # Cerchiamo l'utente col token
+    # 1. Recupero utente
     user_res = supabase.table("users").select("*").eq("reset_token", token).execute()
     
     if not user_res.data:
+        # Qui flash è corretto perché vogliamo segnalare l'errore dopo il redirect
         flash("Il link non è valido o è già stato usato.", "danger")
         return redirect(url_for('login'))
     
     user = user_res.data[0]
     
-    # Controllo scadenza (confronto entrambi in UTC)
+    # 2. Controllo scadenza
     scadenza_db = datetime.fromisoformat(user['token_expiry'])
     if datetime.utcnow() > scadenza_db:
         flash("Il link è scaduto. Richiedine uno nuovo.", "danger")
@@ -1072,16 +1056,17 @@ def reset_password_token(token):
     if request.method == "POST":
         nuova_password = request.form.get("password")
         
-        # Aggiorniamo password e puliamo i campi token
+        # 3. Aggiornamento
         supabase.table("users").update({
             "password": nuova_password,
             "reset_token": None,
             "token_expiry": None
         }).eq("id", user['id']).execute()
         
-        flash("Password aggiornata con successo! Ora puoi accedere.", "success")
-        return redirect(url_for('login'))
+        # NON usiamo flash qui, ma passiamo successo=True
+        return render_template("reset_password_form.html", successo=True)
         
+    # GET: mostriamo il form pulito
     return render_template("reset_password_form.html", token=token)
 
 @app.route("/logout")
@@ -1094,8 +1079,6 @@ def logout():
 
 @app.route("/test_error/<int:code>")
 def test_error(code):
-    # Questa rotta accetta un numero e scatena l'errore corrispondente
-    # Esempio: /test_error/404
     abort(code)
 
 @app.errorhandler(400)
@@ -1156,9 +1139,9 @@ try:
     print("--- ✅ TUTTI I THREAD SONO PARTITI ---")
 except Exception as e:
     print(f"⚠️ Avvio thread fallito: {e}")
-    
+
 # --- AVVIO APPLICAZIONE E THREAD ---
 if __name__ == "__main__":
     # 6. Avvio Flask
-    print("🚀 Server SmartHome avviato su http://127.0.0.1:5000")
-    app.run(debug=False, port=5000)
+    print("🚀 Server SmartHome avviato su http://0.0.0.0:5000")
+    app.run(host='0.0.0.0', debug=False, port=5000)
