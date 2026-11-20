@@ -280,4 +280,4 @@ Potential extensions include:
 
 ## Authors
 
-Developed as an academic IoT and Cloud Computing project.
+Developed as an academic IoT project.
